@@ -1,0 +1,584 @@
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#000000">
+    <title>White Carve</title>
+    <style>
+        html,
+        body {
+            background: black;
+            margin: 0;
+            height: 100%;
+            position: relative;
+            overflow: hidden;
+            color: white;
+            font-family: sans-serif;
+            -webkit-user-select: none;
+            /* Safari */
+            -ms-user-select: none;
+            /* IE 10 and IE 11 */
+            user-select: none;
+            /* Standard syntax */
+        }
+
+        canvas {
+            transform-origin: top left;
+            position: absolute;
+            top: 0;
+            left: 0;
+        }
+
+        svg {
+            display: none;
+        }
+
+        .ui {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            color: white;
+            font-family: sans-serif;
+        }
+
+        .cta {
+            position: absolute;
+            top: 50%;
+            left: 0;
+            width: 100%;
+            text-align: center;
+            pointer-events: none;
+            font-size: 11px;
+            color: gray;
+        }
+
+        .cycle-brush {
+            position: absolute;
+            bottom: 10px;
+            right: 10px;
+        }
+
+        @media (min-width: 1025px) {
+            .cycle-brush {
+                right: 40px;
+            }
+        }
+
+        .cycle-brush a {
+            padding: 5px;
+            display: block;
+            color: gray;
+        }
+
+        .mobile-save {
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            display: flex;
+        }
+
+        @media (max-width: 500px) {
+            .mobile-save {
+                flex-direction: column;
+            }
+        }
+
+        .mobile-save a {
+            padding: 5px 10px;
+            display: block;
+            color: gray;
+        }
+
+        a {
+            text-decoration: none;
+            color: white;
+        }
+
+        select {
+            background: black;
+            color: white;
+            vertical-align: baseline;
+            font-size: 14px;
+            padding: 5px;
+        }
+
+        svg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            pointer-events: none;
+        }
+
+        polyline {
+            stroke: white;
+            stroke-width: 1;
+        }
+
+        .hiddencanvas {
+            display: none;
+        }
+
+        #clickarea {
+            position: fixed;
+            top: 0;
+            right: 0;
+            bottom: 0;
+            left: 0;
+            background-color: transparent;
+        }
+    </style>
+</head>
+
+<body>
+    <canvas id="canvas" width="1920" height="1200" style="opacity: 1;"></canvas>
+    <svg id="svg" xmlns="http://www.w3.org/2000/svg">
+    </svg>
+    <div id="clickarea"></div>
+    <div class="ui">
+        <label for="brush">Brush</label>
+        <select id="brush" name="brush" onchange="changebrush(event)">
+            <option value="0">burst</option>
+            <option value="1">cross</option>
+            <option value="2">times</option>
+            <option value="3">arc</option>
+            <option value="4">spiral</option>
+            <option value="5">vine</option>
+            <option value="6">bounce</option>
+        </select>
+    </div>
+    <div class="cycle-brush">
+        <a href="" onclick="mobilecyclebrush(event)">Switch Brush</a>
+    </div>
+    <div class="mobile-save">
+        <select name="more" id="more" onchange="handleDownloadMore(event)">
+            <option value="">Save …</option>
+            <option value="image">Image</option>
+            <option value="svg">SVG</option>
+            <option value="ply">Stanford PLY</option>
+        </select>
+    </div>
+    <div class="cta">Start your journey. Click anywhere.</div>
+    <script>
+
+        class PseudoRandomGenerator {
+            constructor(seed) {
+                this.seed = seed ?? (Math.random()*2**32)>>>0
+            }
+
+            random() {
+                const result = this.seed / 4294967296
+                this.seed = this.mulberry32(this.seed)
+                return result
+            }
+
+            // https://stackoverflow.com/a/47593316/24768482
+            mulberry32(a) {
+                let t = a += 0x6D2B79F5
+                t = Math.imul(t ^ t >>> 15, t | 1)
+                t ^= t + Math.imul(t ^ t >>> 7, t | 61)
+                return ((t ^ t >>> 14) >>> 0)
+            }
+        }
+
+        const pseudoRandom = new PseudoRandomGenerator(0x12345678)
+        let drawStep = 0
+        const clickArea = document.getElementById('clickarea')
+
+        const PIXEL_RATIO = window.devicePixelRatio || 1
+        const WIDTH = screen.width * PIXEL_RATIO
+        const HEIGHT = screen.height * PIXEL_RATIO
+
+        const canvas = document.getElementById('canvas')
+        canvas.width = WIDTH
+        canvas.height = HEIGHT
+
+        const svg = document.getElementById('svg')
+        svg.setAttribute("width", WIDTH)
+        svg.setAttribute("height", HEIGHT)
+        svg.setAttribute("viewBox", `0 0 ${WIDTH} ${HEIGHT}`)
+
+
+        if (PIXEL_RATIO > 1) {
+            canvas.style.transform = `scale(${1 / PIXEL_RATIO})`
+        }
+
+        const c = canvas.getContext('2d', { willReadFrequently: true })
+        c.fillStyle = "#000000"
+        c.fillRect(0, 0, WIDTH, HEIGHT)
+        c.fillStyle = "#FFFFFF"
+
+        function rndRng(a, b) {
+            return a + (b - a) * pseudoRandom.random()
+        }
+
+        function drawPoint(x, y, xdiff = 0, ydiff = 0) {
+            c.fillRect(Math.floor(x), Math.floor(y), 1, 1)
+            const len = Math.sqrt(xdiff * xdiff + ydiff * ydiff)
+            xdiff /= len
+            ydiff /= len
+            xdiff = Math.floor(Math.max(Math.min(128 + -xdiff * 128, 256), 0))
+            ydiff = Math.floor(Math.max(Math.min(128 + ydiff * 128, 256), 0))
+        }
+
+        function pointOccupied(x, y, xSpeed = 0, ySpeed = 0) {
+            let data = c.getImageData(x - 1, y - 1, 3, 3).data
+            let xOff = Math.round(xSpeed)
+            let yOff = Math.round(ySpeed)
+            if (Math.abs(xOff) > Math.abs(yOff)) {
+                yOff = 0
+            } else {
+                xOff = 0
+            }
+            return data[4 * 4] || data[4 * 4 + xOff * 4 + yOff * 12]
+        }
+
+        const nodes = []
+        const svgNodes = {}
+
+        function step() {
+            window.requestAnimationFrame(() => {
+                if (nodes.length) drawStep++
+                for (let i = 0; i < nodes.length; i++) {
+                    const node = nodes[i]
+                    const stepped = Math.floor(node.x) !== Math.floor(node.x + node.xSpeed) || Math.floor(node.y) !== Math.floor(node.y + node.ySpeed)
+                    node.tick && node.tick()
+                    node.x += node.xSpeed
+                    node.y += node.ySpeed
+                    node.age = node.age || 0
+                    node.age++
+                    updateSVGNode(node)
+                    if (!node.invincible && stepped && (pointOccupied(node.x, node.y, node.xSpeed, node.ySpeed) || node.x < 0 || node.x > WIDTH || node.y < 0 || node.y > HEIGHT)) {
+                        node.oncollide && node.oncollide()
+                        nodes.splice(i, 1)
+                        i--
+                    } else {
+                        node.invincible = Math.max(0, node.invincible - 1)
+                        drawPoint(node.x, node.y, node.xSpeed, node.ySpeed)
+                    }
+                }
+                step()
+            })
+        }
+        step()
+
+        function clone(o) {
+            return JSON.parse(JSON.stringify(o))
+        }
+
+        function updateSVGNode(node) {
+            const svgNode = svgNodes[node.id]
+            if (node.straight) {
+                if (svgNode.length === 1) {
+                    svgNode.push(clone(svgNode[0]))
+                } else {
+                    const endNode = svgNode[1]
+                    endNode.x = node.x
+                    endNode.y = node.y
+                    endNode.z = drawStep
+                }
+            } else {
+                svgNode.push({ x: node.x, y: node.y, z: drawStep })
+            }
+        }
+
+
+        let id = 0;
+        function getID() {
+            id++;
+            return id;
+        }
+
+        function addNode(o) {
+            const IDdObject = Object.assign(o, { id: getID() })
+            svgNodes[IDdObject.id] = [{ x: IDdObject.x, y: IDdObject.y, z: drawStep }]
+            nodes.push(IDdObject)
+        }
+
+
+        const clickFns = [
+            // BURST
+            (x, y) => {
+                for (let i = 0; i < 5; i++) {
+                    const ang = Math.PI * 2 * pseudoRandom.random()
+                    let xSpeed = Math.sin(ang)
+                    let ySpeed = Math.cos(ang)
+                    const r = 1 / Math.max(Math.abs(xSpeed), Math.abs(ySpeed))
+                    xSpeed *= r
+                    ySpeed *= r
+                    addNode({
+                        x,
+                        y,
+                        xSpeed,
+                        ySpeed,
+                        invincible: 2,
+                        straight: true,
+                    })
+                }
+            },
+            // CROSS
+            (x, y) => {
+                for (let i = 0; i < 5; i++) {
+                    const ang = Math.PI / 2 * i
+                    let xSpeed = Math.sin(ang)
+                    let ySpeed = Math.cos(ang)
+                    addNode({
+                        x,
+                        y,
+                        xSpeed,
+                        ySpeed,
+                        invincible: 2,
+                        straight: true,
+                    })
+                }
+            },
+            // TIMES
+            (x, y) => {
+                for (let i = 0; i < 5; i++) {
+                    const ang = Math.PI / 2 * i + Math.PI / 4
+                    let xSpeed = Math.sin(ang)
+                    let ySpeed = Math.cos(ang)
+                    addNode({
+                        x,
+                        y,
+                        xSpeed,
+                        ySpeed,
+                        invincible: 3,
+                        straight: true,
+                    })
+                }
+            },
+            // ARC
+            (x, y) => {
+                let ang = Math.PI * 2 * pseudoRandom.random()
+                let rotationSpeed = pseudoRandom.random() * 0.01
+                if (rndRng(0, 1) > 0.5) rotationSpeed *= -1
+                let o = {
+                    x,
+                    y,
+                    xSpeed: 0,
+                    ySpeed: 0,
+                    invincible: 2,
+                    straight: false,
+                    tick() {
+                        ang += rotationSpeed
+                        let xSpeed = Math.sin(ang)
+                        let ySpeed = Math.cos(ang)
+                        const r = 1 / Math.max(Math.abs(xSpeed), Math.abs(ySpeed))
+                        xSpeed *= r
+                        ySpeed *= r
+                        o.xSpeed = xSpeed
+                        o.ySpeed = ySpeed
+                    }
+                }
+                addNode(o)
+            },
+            // SPIRAL
+            (x, y) => {
+                let ang = Math.PI * 2 * pseudoRandom.random()
+                let rotationSpeed = rndRng(0.01, 0.2) * (rndRng(0, 1) > 0.5 ? -1 : 1)
+                let o = {
+                    x,
+                    y,
+                    xSpeed: 0,
+                    ySpeed: 0,
+                    invincible: 2,
+                    straight: false,
+                    tick() {
+                        rotationSpeed *= 0.999 - Math.abs(rotationSpeed * 0.1)
+                        ang += rotationSpeed
+                        let xSpeed = Math.sin(ang)
+                        let ySpeed = Math.cos(ang)
+                        const r = 1 / Math.max(Math.abs(xSpeed), Math.abs(ySpeed))
+                        xSpeed *= r
+                        ySpeed *= r
+                        o.xSpeed = xSpeed
+                        o.ySpeed = ySpeed
+                    }
+                }
+                addNode(o)
+            },
+            // VINE
+            (x, y) => {
+                let ang = Math.PI * 2 * pseudoRandom.random()
+                let rotationSpeed = rndRng(0.05, 0.2)
+                let decline = rndRng(0.0005, 0.001)
+                if (rndRng(0, 1) < 0.5) {
+                    rotationSpeed *= -1
+                    decline *= -1
+                }
+                let o = {
+                    x,
+                    y,
+                    xSpeed: 0,
+                    ySpeed: 0,
+                    invincible: 60,
+                    straight: false,
+                    tick() {
+                        rotationSpeed -= decline
+                        ang += rotationSpeed
+                        let xSpeed = Math.sin(ang)
+                        let ySpeed = Math.cos(ang)
+                        const r = 1 / Math.max(Math.abs(xSpeed), Math.abs(ySpeed))
+                        xSpeed *= r
+                        ySpeed *= r
+                        o.xSpeed = xSpeed
+                        o.ySpeed = ySpeed
+                    }
+                }
+                addNode(o)
+            },
+            // BOUNCE
+            (x, y, angle, invincible = 2, iterCount = 0) => {
+                let ang = angle === undefined ? Math.PI * 2 * pseudoRandom.random() : angle
+                let xSpeed = Math.sin(ang)
+                let ySpeed = Math.cos(ang)
+                const fn = clickFns[6]
+                let o = {
+                    x,
+                    y,
+                    xSpeed,
+                    ySpeed,
+                    invincible,
+                    straight: true,
+                    oncollide: () => {
+                        if (iterCount < 10 && o.age > 6) {
+                            fn(o.x - xSpeed, o.y - ySpeed, ang + Math.PI / 2, 0, iterCount + 1)
+                            fn(o.x - xSpeed, o.y - ySpeed, ang - Math.PI / 2, 0, iterCount + 1)
+                        }
+                    }
+                }
+                addNode(o)
+            },
+        ]
+
+        let clickFn = clickFns[0]
+
+        let brushIdx = 0
+        function changebrush(e) {
+            brushIdx = Number(e.target.value)
+            clickFn = clickFns[brushIdx]
+        }
+
+
+        clickArea.addEventListener('click', click)
+        let began = false
+        function click(e) {
+            if (!began) {
+                document.body.removeChild(document.body.querySelector('.cta'))
+                began = true
+            }
+            const ratio = WIDTH / canvas.getBoundingClientRect().width
+            const x = Math.floor(e.pageX * ratio)
+            const y = Math.floor(e.pageY * ratio)
+            clickFn(x, y)
+        }
+        window.addEventListener('keypress', e => {
+            if (e.code === 'KeyB') {
+                cyclebrush()
+            }
+            if (e.code === 'KeyS') {
+                saveSVG()
+            }
+            if (e.code === 'KeyP') {
+                savePly()
+            }
+        })
+        function cyclebrush() {
+            brushIdx += 1
+            if (brushIdx < 0) brushIdx = clickFns.length - 1
+            if (brushIdx > clickFns.length - 1) brushIdx = 0
+
+            document.getElementById('brush').value = brushIdx
+            clickFn = clickFns[brushIdx]
+        }
+        function mobilecyclebrush(e) {
+            e.preventDefault()
+            cyclebrush()
+        }
+
+        function mobilesave(e, targetCanvas = canvas) {
+            e && e.preventDefault()
+            const lnk = document.createElement('a')
+            const layer = targetCanvas.id
+            lnk.download = `White Carve - ${new Date().toDateString()}-${{
+                canvas: 'albedo',
+            }[layer]}.png`
+            lnk.href = targetCanvas.toDataURL("image/png;base64")
+            lnk.click()
+        }
+
+        function savePly(e) {
+            const SIZE_SCALE = 0.01
+            e && e.preventDefault()
+            // text/plain mime type
+            const lines = Object.values(svgNodes)
+            const vertexCount = lines.reduce((acc, val) => acc + val.length, 0)
+            const edgeCount = lines.reduce((acc, val) => acc + val.length - 1, 0)
+            const allVertices = lines.flat()
+            const allEdges = []
+            let cursor = 0
+            for (let i = 0; i < lines.length; i++) {
+                const line = lines[i];
+                for (let j = 0; j < line.length - 1; j++) {
+                    allEdges.push([cursor, cursor + 1])
+                    cursor++
+                }
+                cursor++
+            }
+            // NO WHITESPACE ALLOWED IN PLY! // TODO how to format "nicely"?
+            const ply =
+                `ply
+format ascii 1.0
+element vertex ${vertexCount}
+property float x
+property float y
+property float z
+element edge ${edgeCount}                        
+property int vertex1                  
+property int vertex2                  
+end_header
+${allVertices.map(v => `${v.x * SIZE_SCALE} ${v.y * SIZE_SCALE} ${v.z * SIZE_SCALE}`).join('\n')}
+${allEdges.map(e => `${e[0]} ${e[1]}`).join('\n')}
+`
+            const plyBlob = new Blob([ply], { type: "text/plain;charset=utf-8" })
+            const plyUrl = URL.createObjectURL(plyBlob)
+            const lnk = document.createElement("a");
+            lnk.href = plyUrl
+            lnk.download = `White Carve - ${new Date().toDateString()}.ply`
+            lnk.click();
+        }
+
+        function saveSVG(e) {
+            e && e.preventDefault()
+            svg.innerHTML = `
+                <rect width="100%" height="100%" style="fill:black;" />
+                ${Object.values(svgNodes).map(n => `<polyline stroke-linecap="round" style="fill:none;stroke:white;stroke-width:1" points="${n.map(coords => `${coords.x},${coords.y}`).join(" ")}" />`).join('\n')}
+                `
+            const svgBlob = new Blob([svg.outerHTML], { type: "image/svg+xml;charset=utf-8" })
+            const svgUrl = URL.createObjectURL(svgBlob)
+            const lnk = document.createElement("a");
+            lnk.href = svgUrl
+            lnk.download = `White Carve - ${new Date().toDateString()}.svg`
+            lnk.click();
+        }
+
+        function handleDownloadMore(e) {
+            switch (e.target.value) {
+                case 'image':
+                    mobilesave(null, canvas)
+                    break
+                case 'svg':
+                    saveSVG()
+                    break
+                case 'ply':
+                    savePly()
+                    break
+            }
+            e.target.value = ""
+        }
+    </script>
+
+</body>
+
+</html>
