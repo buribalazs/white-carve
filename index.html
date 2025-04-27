@@ -47,6 +47,10 @@
             justify-content: center;
         }
 
+        .ui label {
+            font-size: 0.7rem;
+        }
+
         .cta-1, .cta-2 {
             display: none;
             position: absolute;
@@ -72,12 +76,15 @@
             display: none;
         }
 
-        select {
+        select, button {
+            border: 1px solid #555;
             background: black;
             color: white;
             vertical-align: baseline;
-            font-size: 14px;
+            font-size: 13px;
             padding: 5px;
+            height: 30px;
+            max-width: 11ch;
         }
 
         #clickarea {
@@ -106,7 +113,7 @@
             </select>
         </div>
         <div>
-            <label for="brush">Brush:</label>
+            <label for="brush">Brush</label>
             <select id="brush" name="brush" onchange="changebrush(event)">
                 <option value="0">burst</option>
                 <option value="1">cross</option>
@@ -116,6 +123,9 @@
                 <option value="5">vine</option>
                 <option value="6">bounce</option>
             </select>
+        </div>
+        <div>
+            <button onclick="nextBrush()">Next Brush</button>
         </div>
     </div>
     <div class="cta-1">
@@ -423,6 +433,12 @@
         function changebrush(e) {
             brushIdx = Number(e.target.value)
             clickFn = clickFns[brushIdx]
+        }
+
+        function nextBrush() {
+            brushIdx = (brushIdx + 1) % clickFns.length
+            clickFn = clickFns[brushIdx]
+            document.getElementById('brush').value = brushIdx
         }
 
 
