@@ -51,7 +51,7 @@
             font-size: 0.7rem;
         }
 
-        .cta-1, .cta-2 {
+        .cta-1, .cta-2, .cta-3 {
             display: none;
             position: absolute;
             top: 50%;
@@ -134,6 +134,9 @@
     </div>
     <div class="cta-2">
         <strong>Choose a Brush and Click</strong><br/>
+    </div>
+    <div class="cta-3">
+        Click more
     </div>
     <script>
         class PseudoRandomGenerator {
@@ -443,20 +446,25 @@
 
 
         clickArea.addEventListener('click', click)
-        let began = 0
+        let introState = 0
         function click(e) {
-            if (began === 0) {
+            if (introState === 0) {
                 document.body.requestFullscreen()
                 document.body.querySelector('.cta-1').style.display = 'none'
                 document.body.querySelector('.cta-2').style.display = 'block'
                 document.body.querySelector('.ui').style.display = 'flex'
-                began = 1
+                introState = 1
                 return
-            } else if (began === 1) {
+            } else if (introState === 1) {
                 document.body.querySelector('.cta-2').style.display = 'none'
+                document.body.querySelector('.cta-3').style.display = 'block'
                 document.getElementById('download').style.display = 'block'
-                began = 2
+                introState = 2
+            } else if (introState === 2) {
+                document.body.querySelector('.cta-3').style.display = 'none'
+                introState = 3
             }
+
             const ratio = WIDTH / canvas.getBoundingClientRect().width
             const x = Math.floor(e.pageX * ratio)
             const y = Math.floor(e.pageY * ratio)
