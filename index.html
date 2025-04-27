@@ -35,6 +35,7 @@
         }
 
         .ui {
+            display: none;
             box-sizing: border-box;
             position: fixed;
             bottom: 20px;
@@ -42,12 +43,12 @@
             padding: 0 1rem;
             color: white;
             font-family: sans-serif;
-            display: flex;
             gap: 2rem;
             justify-content: center;
         }
 
-        .cta {
+        .cta-1, .cta-2 {
+            display: none;
             position: absolute;
             top: 50%;
             left: 0;
@@ -56,6 +57,10 @@
             text-align: center;
             pointer-events: none;
             color: gray;
+        }
+
+        .cta-1 {
+            display: block;
         }
 
         a {
@@ -113,11 +118,13 @@
             </select>
         </div>
     </div>
-    <div class="cta">
+    <div class="cta-1">
         <strong>Start your journey</strong><br/>
-        Go Full screen<br/>
-        Choose a Brush<br/>
-        Click anywhere</div>
+        <span>Click here</span>
+    </div>
+    <div class="cta-2">
+        <strong>Choose a Brush and Click</strong><br/>
+    </div>
     <script>
         class PseudoRandomGenerator {
             constructor(seed) {
@@ -420,12 +427,19 @@
 
 
         clickArea.addEventListener('click', click)
-        let began = false
+        let began = 0
         function click(e) {
-            if (!began) {
-                document.body.removeChild(document.body.querySelector('.cta'))
+            if (began === 0) {
+                document.body.requestFullscreen()
+                document.body.querySelector('.cta-1').style.display = 'none'
+                document.body.querySelector('.cta-2').style.display = 'block'
+                document.body.querySelector('.ui').style.display = 'flex'
+                began = 1
+                return
+            } else if (began === 1) {
+                document.body.querySelector('.cta-2').style.display = 'none'
                 document.getElementById('download').style.display = 'block'
-                began = true
+                began = 2
             }
             const ratio = WIDTH / canvas.getBoundingClientRect().width
             const x = Math.floor(e.pageX * ratio)
