@@ -35,11 +35,15 @@
         }
 
         .ui {
-            position: absolute;
-            top: 20px;
-            left: 20px;
+            box-sizing: border-box;
+            position: fixed;
+            bottom: 20px;
+            width: 100%;
+            padding: 0 1rem;
             color: white;
             font-family: sans-serif;
+            display: flex;
+            justify-content: space-between;
         }
 
         .cta {
@@ -53,46 +57,13 @@
             color: gray;
         }
 
-        .cycle-brush {
-            position: absolute;
-            bottom: 10px;
-            right: 10px;
-        }
-
-        @media (min-width: 1025px) {
-            .cycle-brush {
-                right: 40px;
-            }
-        }
-
-        .cycle-brush a {
-            padding: 5px;
-            display: block;
-            color: gray;
-        }
-
-        .mobile-save {
-            position: absolute;
-            bottom: 10px;
-            left: 10px;
-            display: flex;
-        }
-
-        @media (max-width: 500px) {
-            .mobile-save {
-                flex-direction: column;
-            }
-        }
-
-        .mobile-save a {
-            padding: 5px 10px;
-            display: block;
-            color: gray;
-        }
-
         a {
             text-decoration: none;
             color: white;
+        }
+
+        #download {
+            display: none;
         }
 
         select {
@@ -101,22 +72,6 @@
             vertical-align: baseline;
             font-size: 14px;
             padding: 5px;
-        }
-
-        svg {
-            position: absolute;
-            top: 0;
-            left: 0;
-            pointer-events: none;
-        }
-
-        polyline {
-            stroke: white;
-            stroke-width: 1;
-        }
-
-        .hiddencanvas {
-            display: none;
         }
 
         #clickarea {
@@ -136,27 +91,26 @@
     </svg>
     <div id="clickarea"></div>
     <div class="ui">
-        <label for="brush">Brush</label>
-        <select id="brush" name="brush" onchange="changebrush(event)">
-            <option value="0">burst</option>
-            <option value="1">cross</option>
-            <option value="2">times</option>
-            <option value="3">arc</option>
-            <option value="4">spiral</option>
-            <option value="5">vine</option>
-            <option value="6">bounce</option>
-        </select>
-    </div>
-    <div class="cycle-brush">
-        <a href="" onclick="mobilecyclebrush(event)">Switch Brush</a>
-    </div>
-    <div class="mobile-save">
-        <select name="more" id="more" onchange="handleDownloadMore(event)">
-            <option value="">Save …</option>
-            <option value="image">Image</option>
-            <option value="svg">SVG</option>
-            <option value="ply">Stanford PLY</option>
-        </select>
+        <div>
+            <select name="download" id="download" onchange="handleDownload(event)">
+                <option value="">Save As ...</option>
+                <option value="image">Image</option>
+                <option value="svg">SVG</option>
+                <option value="ply">Stanford PLY</option>
+            </select>
+        </div>
+        <div>
+            <label for="brush">Brush:</label>
+            <select id="brush" name="brush" onchange="changebrush(event)">
+                <option value="0">burst</option>
+                <option value="1">cross</option>
+                <option value="2">times</option>
+                <option value="3">arc</option>
+                <option value="4">spiral</option>
+                <option value="5">vine</option>
+                <option value="6">bounce</option>
+            </select>
+        </div>
     </div>
     <div class="cta">Start your journey. Click anywhere.</div>
     <script>
@@ -466,6 +420,7 @@
         function click(e) {
             if (!began) {
                 document.body.removeChild(document.body.querySelector('.cta'))
+                document.getElementById('download').style.display = 'block'
                 began = true
             }
             const ratio = WIDTH / canvas.getBoundingClientRect().width
@@ -473,31 +428,7 @@
             const y = Math.floor(e.pageY * ratio)
             clickFn(x, y)
         }
-        window.addEventListener('keypress', e => {
-            if (e.code === 'KeyB') {
-                cyclebrush()
-            }
-            if (e.code === 'KeyS') {
-                saveSVG()
-            }
-            if (e.code === 'KeyP') {
-                savePly()
-            }
-        })
-        function cyclebrush() {
-            brushIdx += 1
-            if (brushIdx < 0) brushIdx = clickFns.length - 1
-            if (brushIdx > clickFns.length - 1) brushIdx = 0
-
-            document.getElementById('brush').value = brushIdx
-            clickFn = clickFns[brushIdx]
-        }
-        function mobilecyclebrush(e) {
-            e.preventDefault()
-            cyclebrush()
-        }
-
-        function mobilesave(e, targetCanvas = canvas) {
+        function saveCanvas(e, targetCanvas = canvas) {
             e && e.preventDefault()
             const lnk = document.createElement('a')
             const layer = targetCanvas.id
@@ -563,10 +494,10 @@ ${allEdges.map(e => `${e[0]} ${e[1]}`).join('\n')}
             lnk.click();
         }
 
-        function handleDownloadMore(e) {
+        function handleDownload(e) {
             switch (e.target.value) {
                 case 'image':
-                    mobilesave(null, canvas)
+                    saveCanvas(null, canvas)
                     break
                 case 'svg':
                     saveSVG()
