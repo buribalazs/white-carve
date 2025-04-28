@@ -328,28 +328,30 @@
             },
             // ARC
             (x, y) => {
-                let ang = Math.PI * 2 * pseudoRandom.random()
-                let rotationSpeed = pseudoRandom.random() * 0.01
-                if (rndRng(0, 1) > 0.5) rotationSpeed *= -1
-                let o = {
-                    x,
-                    y,
-                    xSpeed: 0,
-                    ySpeed: 0,
-                    invincible: 2,
-                    straight: false,
-                    tick() {
-                        ang += rotationSpeed
-                        let xSpeed = Math.sin(ang)
-                        let ySpeed = Math.cos(ang)
-                        const r = 1 / Math.max(Math.abs(xSpeed), Math.abs(ySpeed))
-                        xSpeed *= r
-                        ySpeed *= r
-                        o.xSpeed = xSpeed
-                        o.ySpeed = ySpeed
+                let angle = Math.PI * 2 * pseudoRandom.random()
+                let rotationSpeed = pseudoRandom.random() * 0.02
+                for (let sign = -1; sign <=1; sign += 2) { // two branches are created
+                    let angleOfThisBranch = sign === 1 ? angle : angle + Math.PI
+                    let o = {
+                        x,
+                        y,
+                        xSpeed: 0,
+                        ySpeed: 0,
+                        invincible: 2,
+                        straight: false,
+                        tick() {
+                            angleOfThisBranch += rotationSpeed * sign
+                            let xSpeed = Math.sin(angleOfThisBranch)
+                            let ySpeed = Math.cos(angleOfThisBranch)
+                            const r = 1 / Math.max(Math.abs(xSpeed), Math.abs(ySpeed))
+                            xSpeed *= r
+                            ySpeed *= r
+                            o.xSpeed = xSpeed
+                            o.ySpeed = ySpeed
+                        }
                     }
+                    addNode(o)
                 }
-                addNode(o)
             },
             // SPIRAL
             (x, y) => {
@@ -462,7 +464,7 @@
         let introState = 0
         function click(e) {
             if (introState === 0) {
-                document.body.requestFullscreen()
+                // document.body.requestFullscreen()
                 document.body.querySelector('.cta-1').style.display = 'none'
                 document.body.querySelector('.cta-2').style.display = 'block'
                 document.body.querySelector('.ui').style.display = 'flex'
