@@ -444,11 +444,25 @@
             document.getElementById('brush').value = brushIdx
         }
 
+        let pageX = 0
+        let pageY = 0
         clickArea.addEventListener('click', click)
+        clickArea.addEventListener('mousemove', e => {
+            pageX = e.pageX
+            pageY = e.pageY
+        })
+        document.addEventListener('keydown', e => {
+            if (e.key === 'k') {
+                click({
+                    pageX,
+                    pageY,
+                })
+            }
+        })
         let introState = 0
         function click(e) {
             if (introState === 0) {
-                document.body.requestFullscreen()
+                // document.body.requestFullscreen()
                 document.body.querySelector('.cta-1').style.display = 'none'
                 document.body.querySelector('.cta-2').style.display = 'block'
                 document.body.querySelector('.ui').style.display = 'flex'
